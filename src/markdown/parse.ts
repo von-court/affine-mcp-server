@@ -501,12 +501,41 @@ function parseList(
       let itemDeltas: TextDelta[] = [];
       const nestedOperations: MarkdownOperation[] = [];
 
+      const childLevel = token.level + 1;
+      const isListOpen = (candidate: TokenLike) =>
+        candidate.level === childLevel &&
+        (candidate.type === "bullet_list_open" || candidate.type === "ordered_list_open");
+      let leadParagraphConsumed = false;
       let cursor = i + 1;
       while (cursor < close) {
         const current = tokens[cursor];
-        if (!itemText && current.type === "inline") {
-          itemDeltas = renderInline(current.children ?? []);
-          itemText = deltaToText(itemDeltas);
+        if (!leadParagraphConsumed && cursor === i + 1 && current.type === "paragraph_open") {
+          const paragraphClose = findMatchingToken(tokens, cursor, "paragraph_open", "paragraph_close");
+          const inline = tokens[cursor + 1];
+          if (paragraphClose > cursor && paragraphClose < close && inline?.type === "inline") {
+            itemDeltas = renderInline(inline.children ?? []);
+            itemText = deltaToText(itemDeltas);
+            leadParagraphConsumed = true;
+            cursor = paragraphClose + 1;
+            continue;
+          }
+        }
+
+        if (!isListOpen(current)) {
+          // Any other block inside the item (paragraph, code, quote, table) is kept as a child block.
+          let segmentEnd = cursor;
+          while (segmentEnd < close && !isListOpen(tokens[segmentEnd])) {
+            segmentEnd += 1;
+          }
+          const outerOperations = state.operations;
+          state.operations = [];
+          parseTokens(tokens, cursor, segmentEnd, state);
+          for (const child of state.operations) {
+            nestedOperations.push({ ...child, depth: (child.depth ?? 0) + depth + 1 });
+          }
+          state.operations = outerOperations;
+          cursor = segmentEnd;
+          continue;
         }
 
         if (current.type === "bullet_list_open" || current.type === "ordered_list_open") {

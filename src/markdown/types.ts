@@ -14,7 +14,7 @@ export type TextDelta = {
   attributes?: TextDeltaAttributes;
 };
 
-export type MarkdownOperation =
+type MarkdownBlockOperation =
   | {
       type: "heading";
       text: string;
@@ -42,8 +42,6 @@ export type MarkdownOperation =
       style: MarkdownListStyle;
       checked?: boolean;
       deltas?: TextDelta[];
-      /** Nesting level below the top-level list; omitted for top-level items. */
-      depth?: number;
     }
   | {
       type: "code";
@@ -65,6 +63,9 @@ export type MarkdownOperation =
       url: string;
       caption?: string;
     };
+
+/** `depth` is the nesting level under list items; omitted for top-level blocks. */
+export type MarkdownOperation = MarkdownBlockOperation & { depth?: number };
 
 export type MarkdownParseResult = {
   operations: MarkdownOperation[];

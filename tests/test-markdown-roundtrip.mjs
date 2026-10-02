@@ -362,6 +362,24 @@ function testLinkedPageReferenceBoundaryExport() {
   );
 }
 
+function testParserKeepsBlocksInsideListItems() {
+  const parsed = parseMarkdownToOperations(
+    '- item\n\n  second paragraph\n\n  ```js\n  code()\n  ```\n  - child\n\n    > quoted\n- next',
+  );
+  assert.deepEqual(
+    parsed.operations.map(op => [op.type, op.text, op.depth ?? 0]),
+    [
+      ['list', 'item', 0],
+      ['paragraph', 'second paragraph', 1],
+      ['code', 'code()', 1],
+      ['list', 'child', 1],
+      ['quote', 'quoted', 2],
+      ['list', 'next', 0],
+    ],
+  );
+  assert.deepEqual(parsed.warnings, []);
+}
+
 function testParserKeepsListNesting() {
   const parsed = parseMarkdownToOperations('- a\n  - b\n    - [ ] c\n- d\n  1. e\n\nafter');
   assert.deepEqual(
@@ -382,6 +400,7 @@ function testParserKeepsListNesting() {
 testRenderCalloutAsAdmonition();
 testParseAdmonitionAsCallout();
 testParserKeepsListNesting();
+testParserKeepsBlocksInsideListItems();
 testParserRetainsInlineDeltas();
 testPlainTextExportCompatibility();
 testSupportedRichTextExport();

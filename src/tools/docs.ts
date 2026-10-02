@@ -4264,13 +4264,12 @@ export function registerDocTools(
       }
     }
 
-    // listAncestors[d] is the most recent list block at depth d; a nested item is appended under
+    // listAncestors[d] is the most recent list block at depth d; a nested block is appended under
     // listAncestors[depth - 1], and top-level blocks continue after the last top-level block.
     const listAncestors: string[] = [];
     for (const [operationIndex, operation] of parsed.operations.entries()) {
-      const requestedDepth = operation.type === "list" ? operation.depth ?? 0 : 0;
-      const depth = Math.min(requestedDepth, listAncestors.length);
-      if (operation.type !== "list") {
+      const depth = Math.min(operation.depth ?? 0, listAncestors.length);
+      if (operation.type !== "list" && depth === 0) {
         listAncestors.length = 0;
       }
       const placement =
