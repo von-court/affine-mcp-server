@@ -362,8 +362,26 @@ function testLinkedPageReferenceBoundaryExport() {
   );
 }
 
+function testParserKeepsListNesting() {
+  const parsed = parseMarkdownToOperations('- a\n  - b\n    - [ ] c\n- d\n  1. e\n\nafter');
+  assert.deepEqual(
+    parsed.operations.map(op => [op.type, op.text, op.style ?? null, op.depth ?? 0]),
+    [
+      ['list', 'a', 'bulleted', 0],
+      ['list', 'b', 'bulleted', 1],
+      ['list', 'c', 'todo', 2],
+      ['list', 'd', 'bulleted', 0],
+      ['list', 'e', 'numbered', 1],
+      ['paragraph', 'after', null, 0],
+    ],
+  );
+  assert.deepEqual(parsed.warnings, []);
+  assert.equal(parsed.stats.unsupportedCount, 0);
+}
+
 testRenderCalloutAsAdmonition();
 testParseAdmonitionAsCallout();
+testParserKeepsListNesting();
 testParserRetainsInlineDeltas();
 testPlainTextExportCompatibility();
 testSupportedRichTextExport();

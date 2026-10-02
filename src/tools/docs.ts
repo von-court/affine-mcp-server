@@ -496,7 +496,6 @@ type DatabaseIntentPreset = {
 const DATABASE_COLUMN_TYPE_VALUES = ["title", "rich-text", "select", "multi-select", "number", "checkbox", "link", "date"] as const;
 
 const MARKDOWN_IMPORT_KNOWN_LOSSES = [
-  "Nested markdown lists are flattened during import.",
   "Markdown images are converted into bookmark blocks unless blobs are uploaded separately.",
   "HTML blocks are imported as plain paragraph text.",
   "Blank lines delimit Markdown blocks and do not create spacer paragraph blocks.",
@@ -4265,13 +4264,23 @@ export function registerDocTools(
       }
     }
 
+    // listAncestors[d] is the most recent list block at depth d; a nested item is appended under
+    // listAncestors[depth - 1], and top-level blocks continue after the last top-level block.
+    const listAncestors: string[] = [];
     for (const [operationIndex, operation] of parsed.operations.entries()) {
+      const requestedDepth = operation.type === "list" ? operation.depth ?? 0 : 0;
+      const depth = Math.min(requestedDepth, listAncestors.length);
+      if (operation.type !== "list") {
+        listAncestors.length = 0;
+      }
       const placement =
-        lastInsertedBlockId
-          ? { afterBlockId: lastInsertedBlockId }
-          : replaceParentId
-            ? { parentId: replaceParentId }
-            : anchorPlacement;
+        depth > 0
+          ? { parentId: listAncestors[depth - 1] }
+          : lastInsertedBlockId
+            ? { afterBlockId: lastInsertedBlockId }
+            : replaceParentId
+              ? { parentId: replaceParentId }
+              : anchorPlacement;
       const appendInput = markdownOperationToAppendInput(
         operation,
         parsed.docId,
@@ -4296,9 +4305,15 @@ export function registerDocTools(
           context.children.insert(context.insertIndex, [blockId]);
         }
         blockIds.push(blockId);
-        lastInsertedBlockId = blockId;
-        if (!replaceParentId) {
-          anchorPlacement = { afterBlockId: blockId };
+        if (operation.type === "list") {
+          listAncestors.length = depth;
+          listAncestors.push(blockId);
+        }
+        if (depth === 0) {
+          lastInsertedBlockId = blockId;
+          if (!replaceParentId) {
+            anchorPlacement = { afterBlockId: blockId };
+          }
         }
       } catch (error) {
         handleMarkdownOperationFailure(error, {
